@@ -1,0 +1,67 @@
+# 3FS Dev Image: clone from GitHub, apply patches, build binaries
+# Build on ARM64 machine (e.g., cp17):
+#   docker build -f Dockerfile.dev-github -t basetenandyj/3fs-dev:arm64-64k-v3 .
+# No build context needed — source is cloned from GitHub.
+#
+# Contents:
+#   /opt/3fs/bin/                - Stripped binaries (mgmtd, meta, storage, fuse, admin_cli)
+#   /opt/3fs/lib/                - libhf3fs_api_shared.so (UsrbIo)
+#
+# Key fixes during build:
+#   1. clang-format-14 symlink (build image only has BiSheng clang-format)
+#   2. git tag must be numeric (e.g., 260224) - VersionInfo.cc uses it as uint32_t
+#   3. patches/apply.sh applies folly, rocksdb, IBConnect patches before build
+
+# Stage 1: Clone and build
+FROM open3fs/3fs-build:20250617-openeuler2203 AS builder
+
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Clone 3FS from fork with all submodules
+RUN git clone --recurse-submodules --branch arm64-64k-page-fixes \
+    https://github.com/jyizheng/3FS.git /workspace/3FS
+
+WORKDIR /workspace/3FS
+
+RUN git config --global --add safe.directory /workspace/3FS && \
+    git config --global --add safe.directory /workspace/3FS/third_party/folly && \
+    git config --global --add safe.directory /workspace/3FS/third_party/rocksdb && \
+    ln -sf /opt/bisheng/BiShengCompiler-4.2.0-aarch64-linux/bin/clang-format /usr/bin/clang-format-14 && \
+    git tag -f 260224 HEAD
+
+# Apply aarch64/64KB page patches to submodules and source
+RUN cd patches && bash apply.sh && cd ..
+
+RUN rm -rf build && mkdir build && cd build && \
+    cmake .. \
+      -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+      -DSHUFFLE_METHOD=stdshuffle \
+      -DENABLE_FUSE_APPLICATION=ON \
+      -DBUILD_TESTS=OFF \
+      -DCMAKE_C_COMPILER=/opt/bisheng/BiShengCompiler-4.2.0-aarch64-linux/bin/clang \
+      -DCMAKE_CXX_COMPILER=/opt/bisheng/BiShengCompiler-4.2.0-aarch64-linux/bin/clang++
+
+RUN cd build && make -j$(nproc)
+
+RUN strip build/bin/mgmtd_main build/bin/meta_main build/bin/storage_main \
+          build/bin/hf3fs_fuse_main build/bin/admin_cli build/bin/monitor_collector_main && \
+    strip build/src/lib/api/libhf3fs_api_shared.so
+
+# Stage 2: Final image — binaries only (no source code)
+FROM open3fs/3fs-build:20250617-openeuler2203
+
+ENV PATH="/opt/3fs/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/usr/lib64:/opt/3fs/lib"
+
+RUN mkdir -p /opt/3fs/bin /opt/3fs/lib
+
+# Stripped binaries
+COPY --from=builder /workspace/3FS/build/bin/mgmtd_main /opt/3fs/bin/
+COPY --from=builder /workspace/3FS/build/bin/meta_main /opt/3fs/bin/
+COPY --from=builder /workspace/3FS/build/bin/storage_main /opt/3fs/bin/
+COPY --from=builder /workspace/3FS/build/bin/hf3fs_fuse_main /opt/3fs/bin/
+COPY --from=builder /workspace/3FS/build/bin/admin_cli /opt/3fs/bin/
+COPY --from=builder /workspace/3FS/build/bin/monitor_collector_main /opt/3fs/bin/
+COPY --from=builder /workspace/3FS/build/src/lib/api/libhf3fs_api_shared.so /opt/3fs/lib/
+
+CMD ["bash"]
