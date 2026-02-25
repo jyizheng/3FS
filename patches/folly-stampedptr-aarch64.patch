@@ -1,0 +1,28 @@
+diff --git a/folly/experimental/StampedPtr.h b/folly/experimental/StampedPtr.h
+index 668649e2c..a55ee4af0 100644
+--- a/folly/experimental/StampedPtr.h
++++ b/folly/experimental/StampedPtr.h
+@@ -80,13 +80,18 @@ struct StampedPtr {
+   void setStamp(uint16_t stamp) { raw = pack(unpackPtr(raw), stamp); }
+ 
+   static T* unpackPtr(uint64_t raw) {
+-    // Canonical form means we need to extend bit 47 of the pointer to
+-    // bits 48..63 (unless the operating system never hands those pointers
+-    // to us, which is difficult to prove).  Signed right-shift of a
+-    // negative number is implementation-defined in C++ (not undefined!),
+-    // but actually does the right thing on all the platforms I can find.
++    // On aarch64 with 64K pages, user-space addresses can have bit 47 set
++    // while bits 48-63 are 0. The original sign-extension from bit 47 is
++    // only correct for x86-64 canonical addresses. On aarch64, we must use
++    // unsigned (logical) right shift to avoid turning user pointers into
++    // kernel addresses.
++#if defined(__aarch64__) || defined(_M_ARM64)
++    auto extended = raw >> kInternalStampBits;
++    return reinterpret_cast<T*>(static_cast<uintptr_t>(extended));
++#else
+     auto extended = static_cast<int64_t>(raw) >> kInternalStampBits;
+     return reinterpret_cast<T*>(static_cast<intptr_t>(extended));
++#endif
+   }
+ 
+   static uint16_t unpackStamp(uint64_t raw) {
