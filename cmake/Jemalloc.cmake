@@ -8,7 +8,7 @@ ExternalProject_add(Hf3fsJemalloc_project
   SOURCE_DIR "${PROJECT_SOURCE_DIR}/third_party/jemalloc"
   BUILD_BYPRODUCTS "${JEMALLOC_DIR}/include/jemalloc/jemalloc.h"
   "${JEMALLOC_DIR}/lib/libjemalloc.so.2"
-  CONFIGURE_COMMAND ./autogen.sh && ./configure --prefix=${JEMALLOC_DIR} --disable-cxx --enable-prof --disable-initial-exec-tls
+  CONFIGURE_COMMAND ./autogen.sh && ./configure --prefix=${JEMALLOC_DIR} --disable-cxx --enable-prof --disable-initial-exec-tls --with-lg-page=16
   BUILD_IN_SOURCE ON
   BUILD_COMMAND make -j 6
   INSTALL_DIR "${JEMALLOC_DIR}"

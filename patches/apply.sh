@@ -21,3 +21,9 @@ if git -C ../third_party/folly apply --reverse --check ../../patches/folly.patch
 else
     git -C ../third_party/folly apply ../../patches/folly.patch
 fi
+
+if git -C .. apply --reverse --check patches/ibconnect-pkey-index.patch &>/dev/null; then
+    echo "ibconnect-pkey-index patch already applied. skipping."
+else
+    git -C .. apply patches/ibconnect-pkey-index.patch
+fi

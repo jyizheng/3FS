@@ -462,7 +462,16 @@ Result<Void> IBSocket::accept(folly::IPAddressV4 ip, const IBConnectReq &req, Du
     auto des = describe_.wlock();
     *des = fmt::format("[accept RDMA://{}]", ip.str());
   }
+  // Use client's config but keep server's own pkey_index.
+  // IB fabric checks P_Key values (not indices) match. When nodes have different
+  // P_Key table layouts (e.g., 0xffff at index 0 vs index 1), using the client's
+  // pkey_index on the server resolves to the wrong P_Key value, causing vendor_error 245.
+  // Fix: each side uses its OWN configured pkey_index (which should point to 0xFFFF
+  // in its local pkey table), so both QPs end up with the same pkey value.
+  auto localPkeyIndex = config_.clone().toIBConnectConfig(port_.isRoCE()).pkey_index;
   connectConfig_ = req.config;
+  connectConfig_.pkey_index = localPkeyIndex;
+  XLOGF(INFO, "IBSocket {} accept pkey_index: client={}, local={}", describe(), req.config.pkey_index, localPkeyIndex);
   if (checkConfig() != 0) {
     return makeError(StatusCode::kInvalidConfig);
   }
