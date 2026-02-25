@@ -1,7 +1,16 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index e9e506951..79a68507f 100644
+index e9e506951..a65320490 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
+@@ -356,7 +356,7 @@ if(FAIL_ON_WARNINGS)
+   if(MSVC)
+     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
+   else() # assume GCC
+-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
++    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wno-unused-but-set-variable")
+   endif()
+ endif()
+ 
 @@ -620,7 +620,7 @@ set(SOURCES
          db/blob/blob_source.cc
          db/blob/prefetch_buffer_collection.cc
