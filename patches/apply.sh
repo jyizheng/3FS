@@ -22,14 +22,11 @@ else
     git -C ../third_party/folly apply ../../patches/folly.patch
 fi
 
-if git -C .. apply --reverse --check patches/ibconnect-pkey-index.patch &>/dev/null; then
-    echo "ibconnect-pkey-index patch already applied. skipping."
-else
-    git -C .. apply patches/ibconnect-pkey-index.patch
-fi
-
 if git -C ../third_party/folly apply --reverse --check ../../patches/folly-stampedptr-aarch64.patch &>/dev/null; then
     echo "folly StampedPtr aarch64 patch already applied. skipping."
 else
     git -C ../third_party/folly apply ../../patches/folly-stampedptr-aarch64.patch
 fi
+
+# Note: ibconnect-pkey-index.patch is committed directly to src/common/net/ib/IBConnect.cc
+# and does not need to be applied here.
